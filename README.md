@@ -33,14 +33,14 @@ This project illustrates an **AI-driven orchestration framework** for intelligen
 |           Agentic CockroachDB Orchestrator                   |
 +--------------------------------------------------------------+
 |  Planner Agent                                               |
-|  • Reads SLA objectives (TPS / latency)                      |
-|  • Generates deployment and tuning plan                      |
-|  • Coordinates actions among all other agents                |
-|  • Can employ AI reasoning or rule-based logic               |
+|  • Evaluates SLA goals and defines the tuning plan           |
+|  • Implements reasoning logic (rule-based)                   |
+|  • Integrated into orchestrator_agentic.py                   |
+|  • Generates next action: scale_up / optimize / hold         |
 +--------------------------------------------------------------+
 |  Operator Agent                                              |
 |  • Deploys CockroachDB Operator CRDs and controller          |
-|  • Image: quay.io/tonyfieit75/cockroach-operator:s390x-v2.10.0 |
+|  • Image: quay.io/tonyfieit75/cockroach-operator:s390x-v2.10.0|
 |  • Manages lifecycle of CockroachDBCluster resources         |
 +--------------------------------------------------------------+
 |  Database Cluster Agent                                      |
@@ -55,15 +55,15 @@ This project illustrates an **AI-driven orchestration framework** for intelligen
 |  • Publishes metrics to Feedback Agent via PromQL endpoints  |
 +--------------------------------------------------------------+
 |  Feedback & Tuning Agent                                     |
-|  • Executes Planner’s instructions (orchestrator.py)         |
-|  • Queries Prometheus for TPS and latency                    |
+|  • Implements benchmark + metrics collection loop            |
 |  • Evaluates SLA compliance (≥10 K TPS / ≤ 5 ms)             |
 |  • Applies configuration patches via Operator API            |
+|  • File: orchestrator_agentic.py                             |
 +--------------------------------------------------------------+
-|  Human-in-the-Loop (HITL)                                    |
-|  • Reviews dashboards and system decisions                   |
-|  • Approves major actions or policy changes                  |
-|  • Ensures transparency and governance                       |
+|  Human-in-the-Loop (HITL)                                   |
+|  • Requests approval for planner decisions (scale/optimize) |
+|  • CLI-based interaction (future: Slack/WhatsApp integration)|
+|  • Ensures transparency and safety                          |
 +--------------------------------------------------------------+
 ```
 
@@ -75,7 +75,7 @@ This project illustrates an **AI-driven orchestration framework** for intelligen
 agentic-cockroachdb/
 ├── Chart.yaml
 ├── values.yaml
-├── orchestrator.py
+├── orchestrator_agentic.py      # updated with Planner + HITL agents
 ├── ci/
 │   ├── deploy_agentic_cockroachdb.sh
 │   └── uninstall_agentic_cockroachdb.sh
@@ -98,12 +98,12 @@ agentic-cockroachdb/
 
 | Agent | Description |
 |--------|--------------|
-| **Planner Agent** | Defines desired SLA goals and formulates deployment + tuning plan; may use ML/LLM reasoning in future versions. |
+| **Planner Agent** | Embedded inside `orchestrator_agentic.py`. Evaluates metrics and proposes the next step (scale_up / optimize / hold). |
 | **Operator Agent** | Installs CockroachDB Operator CRDs and controls the cluster lifecycle. |
 | **Database Cluster Agent** | Configures CockroachDB nodes and resources through the Operator CR. |
 | **Monitoring Agent** | Deploys Prometheus/Grafana and collects TPS & latency metrics. |
-| **Feedback & Tuning Agent** | Executes the control loop to reach SLA; scales and revalidates performance. |
-| **Human-in-the-Loop (HITL)** | Observes results via Grafana or CLI; approves tuning or termination of loops. |
+| **Feedback & Tuning Agent** | Executes the benchmark–metric–patch loop to reach SLA. |
+| **Human-in-the-Loop (HITL)** | Approves planner actions interactively; provides governance. |
 
 ---
 
@@ -145,7 +145,7 @@ monitoring:
 - OpenShift cluster with `oc`, `helm`, and `yq`
 - Logged-in cluster session (`oc whoami`)
 - StorageClass `managed-nvme`
-- Access to images on quay.io/tonyfieit75
+- Access to quay.io images
 
 ### Deploy
 ```bash
@@ -157,7 +157,7 @@ This script will:
 2. Deploy Operator Agent
 3. Deploy Database Cluster Agent
 4. Deploy Monitoring stack
-5. Deploy Feedback & Tuning Agent
+5. Deploy Feedback & Planner Orchestrator Agent
 6. Wait for all components to be ready
 
 ### Verify
@@ -167,38 +167,36 @@ oc get pods -n agentic-db
 
 ---
 
-## 7 Feedback Control Loop
+## 7 Feedback–Planner–Human Loop
 
-The **Feedback & Tuning Agent** executes the logic in `orchestrator.py`:
+The **orchestrator_agentic.py** script now forms a fully functional closed feedback loop:
 
-1. Run TPC-C benchmark  
-2. Query Prometheus:
-   ```promql
-   rate(sql_exec_count[1m])
-   histogram_quantile(0.99, rate(sql_exec_latency_bucket[1m]))
-   ```
-3. Evaluate SLA targets  
-4. If SLA not met, scale cluster:
-   ```bash
-   oc patch crdbcluster crdb-prod --type=merge -p '{"spec":{"nodes":5}}'
-   ```
-5. Loop until performance stabilizes.
+1. **Benchmark** – Launches a TPCC test job.  
+2. **Feedback** – Collects TPS and latency metrics from Prometheus.  
+3. **Planner** – Decides whether to scale or optimize.  
+4. **HITL** – Requests human approval for the proposed change.  
+5. **Execution** – Applies change using OpenShift `oc patch`.  
+6. **Re-evaluate** – Repeats until SLA (10 K TPS / 5 ms) is met.
+
+### Example Console Flow
+```
+📊 Current TPS = 9780.25, P99 Latency = 6.1 ms
+🧠 Planner Decision: TPS below target (9780.25 < 10000), planning to add nodes.
+Approve action 'scale_up'? (y/n): y
+🔧 Scaling CockroachDB nodes: 5 → 6
+✅ Benchmark job submitted.
+```
 
 ---
 
-## 8 Planner–Human Collaboration Loop
+## 8 Human-in-the-Loop Interaction
 
-The **Planner Agent** periodically reports its plan and reasoning steps to the **Human-in-the-Loop**, enabling transparency and control.
+Currently the **HITL Agent** operates via CLI input (`y/n`). In future releases this will be extended to:
+- Slack or Telegram Webhooks
+- Twilio WhatsApp messages for remote approvals
+- Policy-based auto-approval based on thresholds
 
-| Phase | Actor | Action |
-|--------|--------|---------|
-| Define | Planner Agent | Reads goal (10 K TPS / 5 ms) and creates deployment plan. |
-| Execute | Feedback & Tuning Agent | Applies plan and collects results. |
-| Observe | Monitoring Agent | Reports metrics to Planner and HITL. |
-| Validate | Human-in-the-Loop | Reviews Grafana dashboards and approves final SLA. |
-| Learn | Planner Agent | Updates future plans based on historical results. |
-
-This design maintains **autonomy with oversight**, ensuring safe and explainable operation.
+This ensures safety and explainability — humans supervise, AI automates.
 
 ---
 
@@ -231,11 +229,11 @@ Performs:
 
 ## 11 Future Enhancements
 
-- Add AI/LLM-driven Planner Agent (WatsonX.ai or LangChain)  
-- Integrate GitOps and policy reconciliation  
+- Replace rule-based planner with LLM-driven Planner Agent (WatsonX.ai or LangChain)  
+- Integrate Slack/Twilio for HITL confirmation  
+- Add predictive scaling based on metric trends  
 - Extend to CockroachDB v25+ and Postgres variants  
-- Implement OpenTelemetry for full traceability  
-- Add cost-based scaling and energy efficiency metrics  
+- Introduce policy-based reinforcement learning for tuning  
 
 ---
 
@@ -251,4 +249,5 @@ Focus : AI-Driven Automation, Database Optimization, and Intelligent Orchestrati
 
 Released under the **Apache 2.0 License**.  
 See [LICENSE](LICENSE) for details.
+
 
