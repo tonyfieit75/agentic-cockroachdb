@@ -1,0 +1,8 @@
+apiVersion: v2
+name: agentic-cockroachdb
+description: >
+  Agentic system that deploys, tunes, and validates CockroachDB v24.x on OpenShift.
+type: application
+version: 1.0.0
+appVersion: "v24.2.1"
+

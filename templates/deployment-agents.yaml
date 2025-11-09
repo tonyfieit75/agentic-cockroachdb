@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentic-orchestrator
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: agentic-orchestrator
+spec:
+  replicas: {{ .Values.agents.replicas }}
+  selector:
+    matchLabels:
+      app: agentic-orchestrator
+  template:
+    metadata:
+      labels:
+        app: agentic-orchestrator
+    spec:
+      serviceAccountName: agentic-sa
+      containers:
+        - name: orchestrator
+          image: {{ .Values.agents.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NAMESPACE
+              value: {{ .Values.namespace }}
+            - name: PROMETHEUS_ENDPOINT
+              value: {{ .Values.agents.prometheusEndpoint }}
+            - name: GRAFANA_ENDPOINT
+              value: {{ .Values.agents.grafanaEndpoint }}
+            - name: TARGET_TPS
+              value: "{{ .Values.agents.targetSLA.tps }}"
+            - name: TARGET_LATENCY
+              value: "{{ .Values.agents.targetSLA.latency_ms }}"
+            - name: FEEDBACK_INTERVAL
+              value: "{{ .Values.agents.feedbackInterval }}"
+          volumeMounts:
+            - name: agentic-config
+              mountPath: /etc/agentic
+          command: ["python3"]
+          args: ["/app/orchestrator.py"]
+      volumes:
+        - name: agentic-config
+          configMap:
+            name: agentic-config
+

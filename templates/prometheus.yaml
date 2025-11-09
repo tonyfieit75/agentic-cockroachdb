@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: agentic-prometheus
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceAccountName: agentic-sa
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: {{ .Values.monitoring.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.monitoring.prometheusStorage }}
+

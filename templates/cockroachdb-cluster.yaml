@@ -1,0 +1,26 @@
+apiVersion: crdb.cockroachlabs.com/v1alpha1
+kind: CrdbCluster
+metadata:
+  name: crdb-prod
+  namespace: {{ .Values.namespace }}
+spec:
+  nodes: {{ .Values.cockroachdb.nodes }}
+  dataStore:
+    pvc:
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.cockroachdb.storage }}
+        storageClassName: {{ .Values.cockroachdb.storageClass }}
+  image:
+    name: {{ .Values.cockroachdb.image }}
+  tlsEnabled: true
+  resources:
+    requests:
+      cpu: {{ .Values.cockroachdb.cpu }}
+      memory: {{ .Values.cockroachdb.memory }}
+    limits:
+      cpu: {{ .Values.cockroachdb.cpu }}
+      memory: {{ .Values.cockroachdb.memory }}
+

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentic-config
+  namespace: {{ .Values.namespace }}
+data:
+  config.json: |
+    {
+      "namespace": "{{ .Values.namespace }}",
+      "feedbackInterval": "{{ .Values.agents.feedbackInterval }}",
+      "targetSLA": {
+        "tps": "{{ .Values.agents.targetSLA.tps }}",
+        "latency_ms": "{{ .Values.agents.targetSLA.latency_ms }}"
+      },
+      "prometheusEndpoint": "{{ .Values.agents.prometheusEndpoint }}",
+      "grafanaEndpoint": "{{ .Values.agents.grafanaEndpoint }}"
+    }
+
