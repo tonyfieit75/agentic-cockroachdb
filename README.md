@@ -33,38 +33,46 @@ This project illustrates an **AI-driven orchestration framework** for intelligen
 |           Agentic CockroachDB Orchestrator                   |
 +--------------------------------------------------------------+
 |  Planner Agent                                               |
-|  • Evaluates SLA goals and defines the tuning plan           |
-|  • Implements reasoning logic (rule-based)                   |
-|  • Integrated into orchestrator_agentic.py                   |
-|  • Generates next action: scale_up / optimize / hold         |
+|  • Evaluates SLA objectives (TPS, latency, stability)        |
+|  • Implements rule-based + heuristic reasoning               |
+|  • Embedded in orchestrator_agentic.py                       |
+|  • Produces actions: scale / rebalance / hold                |
 +--------------------------------------------------------------+
-|  Operator Agent                                              |
-|  • Deploys CockroachDB Operator CRDs and controller          |
-|  • Image: quay.io/tonyfieit75/cockroach-operator:s390x-v2.10.0|
-|  • Manages lifecycle of CockroachDBCluster resources         |
+|  Execution Agent                                             |
+|  • Applies actions directly to Kubernetes primitives         |
+|  • Patches StatefulSet replicas / resources                  |
+|  • No Cockroach Operator dependency                          |
+|  • Uses oc / kubectl API                                     |
 +--------------------------------------------------------------+
-|  Database Cluster Agent                                      |
-|  • Provisions and configures CockroachDB nodes               |
-|  • Handles CPU/memory/storage and replication settings       |
-|  • Image: quay.io/tonyfieit75/cockroachdb-s390x:23.1.2       |
-|  • Uses OpenShift StorageClass (managed-nvme)                |
+|  CockroachDB Cluster (StatefulSet-based)                     |
+|  • 3-node CockroachDB cluster                                |
+|  • Image: quay.io/tonyfieit75/cockroachdb-s390x:23.1.x       |
+|  • Headless Service for deterministic DNS                    |
+|  • PVCs via OpenShift StorageClass (managed-nfs-storage)     |
+|  • Insecure mode (PoC / benchmark)                           |
 +--------------------------------------------------------------+
-|  Monitoring Agent                                            |
-|  • Deploys Prometheus and Grafana                            |
-|  • Collects and visualizes performance metrics               |
-|  • Publishes metrics to Feedback Agent via PromQL endpoints  |
+|  Benchmark Agent                                             |
+|  • Runs TPCC workload as ephemeral Kubernetes Jobs           |
+|  • Measures throughput & latency under load                 |
+|  • Image: cockroachdb-workload:s390x                         |
+|  • Triggered programmatically by the Orchestrator            |
 +--------------------------------------------------------------+
-|  Feedback & Tuning Agent                                     |
-|  • Implements benchmark + metrics collection loop            |
-|  • Evaluates SLA compliance (≥10 K TPS / ≤ 5 ms)             |
-|  • Applies configuration patches via Operator API            |
-|  • File: orchestrator_agentic.py                             |
+|  Monitoring & Observability                                  |
+|  • Prometheus scrapes CockroachDB metrics                    |
+|  • Grafana visualizes cluster health & performance           |
+|  • Metrics consumed by Feedback Agent via PromQL             |
 +--------------------------------------------------------------+
-|  Human-in-the-Loop (HITL)                                   |
-|  • Requests approval for planner decisions (scale/optimize) |
-|  • CLI-based interaction (future: Slack/WhatsApp integration)|
-|  • Ensures transparency and safety                          |
+|  Feedback & Control Loop                                     |
+|  • Correlates benchmark results with live metrics            |
+|  • Validates SLA compliance                                  |
+|  • Feeds Planner Agent with real-time signals                |
 +--------------------------------------------------------------+
+|  Human-in-the-Loop (HITL)                                     |
+|  • Reviews planner decisions (scale / tune)                  |
+|  • CLI-based approval today                                  |
+|  • Future: Slack / UI / WhatsApp integration                 |
++--------------------------------------------------------------+
+
 ```
 
 ---
